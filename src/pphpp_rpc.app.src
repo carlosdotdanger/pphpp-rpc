@@ -1,0 +1,12 @@
+{application, pphpp_rpc,
+ [
+  {description, "quick n' filthy rpc server for legacy php code."},
+  {vsn, git},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { pphpp_rpc_app, []}},
+  {env, []}
+ ]}.
