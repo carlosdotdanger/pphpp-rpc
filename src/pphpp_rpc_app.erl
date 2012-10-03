@@ -29,6 +29,6 @@ start(_StartType, _StartArgs) ->
         ranch_tcp, TcpOpts, pphpp_protocol, PphppArgs) || 
                     {Name,TcpOpts,PphppArgs} <- Servers  ],
     {ok,Pid}.
-   % php_pool_sup:start_link(PoolSpecs).
+
 stop(_State) ->
     ok.

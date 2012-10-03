@@ -52,10 +52,11 @@ handle_cast({err_reply,MsgId,Data}, #state{tpt = Trans, sck = Sock}  = State) ->
 	Trans:send(Sock,Msg),
 	Trans:setopts(Sock, [{active, once}]),
     {noreply, State}.
-handle_info({tcp,Socket, <<?FIX_ARR,4:4,0:8,?UINT_32:8,
+handle_info({tcp,Socket, <<?FIX_ARR,4:4,0:8,_UINT_32:8,
 						MsgId:32/big-unsigned-integer,
 						_Rest/binary>> = Data}, 
 						#state{tpt = Trans, pool = Pool}  = State) ->
+	error_logger:info_msg("GOT REQUEST ~p~n",[MsgId]),
 	pphpp:handle_request(self(),Pool,MsgId,Data),
 	Trans:setopts(Socket, [{active, once}]),
     {noreply, State};
