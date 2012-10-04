@@ -1,6 +1,7 @@
 -module(pphpp_worker).
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
+-define(RCV_MORE_TIMEOUT,5).
 
 %% ------------------------------------------------------------------
 %% API Function Exports
@@ -47,10 +48,11 @@ init([PHPSpec,MaxCalls,CallTimeout]) ->
 	}}.
 
 handle_call({php_call,Data},_Frm, 
-		#state{calls = Hits, status=ready, port = Port} = State) ->
+		#state{calls = Hits, status=ready, port = Port, 
+			call_timeout = CallTimeout} = State) ->
 	erlang:port_command(State#state.port,Data),
-	receive 
-		{Port,{data,Response}} ->
+	case php_rcv(Port,CallTimeout) of
+		{ok,Response} ->
 			NewHits = Hits + 1,
 			case NewHits < State#state.max_calls of
 				true ->
@@ -60,8 +62,6 @@ handle_call({php_call,Data},_Frm,
 				end;
     	Err ->
      		{reply, {error,Err}, State#state{status=err},0}
-    after State#state.call_timeout ->
-    	{reply,{error,timeout},State#state{status=err},0}
     end;
 handle_call({php_call,_}, _From, #state{status = Status} = State) ->
 	{reply, {error,{not_ready,Status}}, State};
@@ -76,10 +76,11 @@ handle_info({'EXIT',_,shutdown},State)->
 handle_info(timeout,State)->
 	{stop,normal,State}.
 
-handle_cast(stop, State) ->
-    {stop,normal, State}.
+handle_cast(stop,State)->
+	{stop,normal,State}.
 
 terminate(_Reason, _State) ->
+	%error_logger:info_msg("php_worker stopping with status ~p~n",[State#state.status]),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -90,3 +91,17 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 php_port({PhpExec,PortOpts})->
 	open_port({spawn_executable,PhpExec},PortOpts).
+
+php_rcv(Port,Timeout)->
+	php_rcv(Port,<<>>,Timeout).
+php_rcv(Port,Dat,Timeout)->
+	receive 
+		{Port,{data,Response}} ->
+			case pphpp_protocol:chk_msg(<<Dat/binary, Response/binary>>) of
+				ok -> {ok,<<Dat/binary, Response/binary>>};
+				_ -> php_rcv(Port,<<Dat/binary, Response/binary>>,?RCV_MORE_TIMEOUT)
+			end
+	after Timeout ->
+		{php_timeout,Dat}
+	end.
+

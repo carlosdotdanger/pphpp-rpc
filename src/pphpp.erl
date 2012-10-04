@@ -2,7 +2,9 @@
 
 -export ([call/2,status/1,stop/1]).
 -export([config_to_args/1,config_to_service_specs/1]).
--export ([handle_request/4,handle_notify/3]).
+-export ([handle_request/4,handle_notify/2]).
+
+-export ([do_request/5,do_notify/3]).
 
 -define (MAX_RETRIES, 2).
 -define (DEFAULT_CALL_TIMEOUT, 2000).
@@ -19,13 +21,14 @@ status(Pid)->
 stop(Pid)->
 	pphpp_worker:stop(Pid).
 
-handle_request(From,Pool,MsgId,Data)->
+handle_request(Writr,Pool,Data,MsgId)->
 	F = fun(Pid) -> pphpp:call(Pid,Data) end,
-	spawn(?MODULE,do_request(From,Pool, MsgId,F,1)).
+	do_request(Writr, Pool, MsgId,F,1).
 
-handle_notify(From,Pool,Data)->
-	F = fun(Pid) -> pphpp:call(Pid,Data) end,
-	spawn(?MODULE,do_notify(From,Pool,F,1)).
+handle_notify(Pool,Data)->
+	F = fun(Pid) -> 
+		pphpp:call(Pid,Data) end,
+		do_notify(Pool,F,1).
 
 config_to_args(Config)->
 	PhpExec =  proplists:get_value(php_exec,Config),
@@ -46,7 +49,7 @@ config_to_args(Config)->
 			E -> {env,E}
 		end,	
 	Opts = [ X || 
-		X <-[Args,Env,Dir,binary,exit_status,{packet,4}], X =/= undefined],
+		X <-[Args,Env,Dir,binary,exit_status,stream], X =/= undefined],
 	[{PhpExec,Opts},MaxCalls,CallTimeOut].
 
 config_to_service_specs(Config) when is_list(Config)->
@@ -54,24 +57,24 @@ config_to_service_specs(Config) when is_list(Config)->
 
 
 %%INTERNAL
-do_request(From,Pool,MsgId,F,?MAX_RETRIES)->
+do_request(Writr,Pool,MsgId,F,?MAX_RETRIES)->
 	case poolboy:transaction(Pool,F) of
-		{error,{Type,Dat}} -> pphpp_protocol:err_reply(From,MsgId,[Type,Dat]);
-		Resp -> pphpp_protocol:reply(From,Resp)
+		{error,{Type,Dat}} -> pphpp_protocol:err_reply(Writr,MsgId,[Type,Dat]);
+		{ok,Resp} -> Writr(Resp)
 	end;
-do_request(From,Pool,MsgId, F,Count)->
+do_request(Writr,Pool, MsgId, F,Count)->
 	case poolboy:transaction(Pool,F) of
-		{error,_} -> do_request(From,Pool, MsgId,F,Count +1);
-		Resp -> pphpp_protocol:reply(From,Resp)
+		{error,_} -> do_request(Writr,Pool, MsgId,F,Count + 1);
+		{ok,Resp} -> Writr(Resp)
 	end.
 
-do_notify(_From,Pool,F,?MAX_RETRIES)->
+do_notify(Pool,F,?MAX_RETRIES)->
 	case poolboy:transaction(Pool,F) of
 		{error,{Type,Dat}} -> {error,{Type,Dat}};
 		_ -> ok
 	end;
-do_notify(From,Pool,F,Count)->
+do_notify(Pool,F,Count)->
 	case poolboy:transaction(Pool,F) of
-		{error,_} -> do_notify(From,Pool,F,Count +1);
+		{error,_} -> do_notify(Pool,F,Count + 1);
 		_ -> ok
 	end.
