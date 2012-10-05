@@ -3,6 +3,7 @@
 -export ([call/2,status/1,stop/1]).
 -export([config_to_args/1,config_to_service_specs/1]).
 -export ([handle_request/4,handle_notify/3]).
+-export ([do_request/5]).
 
 -define (MAX_RETRIES, 2).
 -define (DEFAULT_CALL_TIMEOUT, 2000).
@@ -21,7 +22,7 @@ stop(Pid)->
 
 handle_request(From,Pool,MsgId,Data)->
 	F = fun(Pid) -> pphpp:call(Pid,Data) end,
-	spawn(?MODULE,do_request(From,Pool, MsgId,F,1)).
+	spawn(?MODULE,do_request,[From,Pool, MsgId,F,1]).
 
 handle_notify(From,Pool,Data)->
 	F = fun(Pid) -> pphpp:call(Pid,Data) end,
@@ -56,13 +57,14 @@ config_to_service_specs(Config) when is_list(Config)->
 %%INTERNAL
 do_request(From,Pool,MsgId,F,?MAX_RETRIES)->
 	case poolboy:transaction(Pool,F) of
+		{ok,Resp} -> pphpp_protocol:reply(From,Resp);
 		{error,{Type,Dat}} -> pphpp_protocol:err_reply(From,MsgId,[Type,Dat]);
-		Resp -> pphpp_protocol:reply(From,Resp)
+		_Err -> pphpp_protocol:err_reply(From,MsgId,[unknown_err])
 	end;
 do_request(From,Pool,MsgId, F,Count)->
 	case poolboy:transaction(Pool,F) of
-		{error,_} -> do_request(From,Pool, MsgId,F,Count +1);
-		Resp -> pphpp_protocol:reply(From,Resp)
+		{ok,Resp} -> pphpp_protocol:reply(From,Resp);
+		{error,_} -> spawn(?MODULE,do_request,[From,Pool, MsgId,F,Count +1])
 	end.
 
 do_notify(_From,Pool,F,?MAX_RETRIES)->

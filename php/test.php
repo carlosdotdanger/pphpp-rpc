@@ -11,8 +11,12 @@ function pphpp_loop($handler)
 		$in = fread(STDIN,array_pop(unpack('N', $len_s)));
 		if(feof(STDIN))
 			break;
-		$out = $handler->do_it($in);
-		fwrite(STDOUT,pack('N',strlen($out)).$out);
+
+
+		list($type,$id,$f,$args) = msgpack_unpack($in);
+		$out = $handler->do_it($f,$args);
+		$msg = msgpack_pack(array(1,$id,NULL,$out));
+		fwrite(STDOUT,pack('N',strlen($msg)).$msg);
 		fflush(STDOUT);
 		unset($in);
 		unset($out);
@@ -26,12 +30,20 @@ function pphpp_loop($handler)
 
 //requset handler
 class Reverser{
-	public function do_it($raw_input){
-		return strrev($raw_input);
+	public function do_it($f,$args){
+		list($s,$num) = $args;
+		if($num > 1000)
+			$num = 1000;
+		$b = strrev($s);
+		$out = "";
+		for($x=0;$x < $num ;$x++){
+			$out .= $b;
+		}
+		return $out;
 	}
 
 	public function shutdown(){
-		return;
+	
 	}
 }
 

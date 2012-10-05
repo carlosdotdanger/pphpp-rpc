@@ -52,10 +52,15 @@ handle_cast({err_reply,MsgId,Data}, #state{tpt = Trans, sck = Sock}  = State) ->
 	Trans:send(Sock,Msg),
 	Trans:setopts(Sock, [{active, once}]),
     {noreply, State}.
-handle_info({tcp,Socket, <<?FIX_ARR,4:4,0:8,?UINT_32:8,
-						MsgId:32/big-unsigned-integer,
+handle_info({tcp,Socket, <<9:4,4:4,0:8,
+						RawId:5/binary,
 						_Rest/binary>> = Data}, 
 						#state{tpt = Trans, pool = Pool}  = State) ->
+	MsgId = case mpack:unpack(RawId) of 
+		{ok,Val} -> Val;
+		{ok,Val,_} -> Val;
+		Err -> Err
+	end,
 	pphpp:handle_request(self(),Pool,MsgId,Data),
 	Trans:setopts(Socket, [{active, once}]),
     {noreply, State};
@@ -64,7 +69,11 @@ handle_info({tcp,Socket, <<?FIX_ARR,3:4,2:8,_Rest/binary>> = Data},
 	pphpp:handle_notify(self(),Pool,Data),
 	Trans:setopts(Socket, [{active, once}]),
     {noreply, State};
-handle_info({tcp,_Socket, _Data},State) ->
+handle_info({tcp,_Socket, <<Sample:8/binary,_Data/binary>>},State) ->
+	error_logger:info_msg("got some weird shit! ~p~n",[Sample]),
+			{stop,normal,State};
+handle_info({tcp,_Socket, <<Sample:1/binary,_Data/binary>>},State) ->
+	error_logger:info_msg("got some weird shit! ~p~n",[Sample]),
 			{stop,normal,State};
 handle_info({tcp_closed, _Socket},State)->
 	{stop,normal,State};
