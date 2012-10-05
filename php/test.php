@@ -1,4 +1,5 @@
 <?php
+dl('msgpack.so');
 //call after all init is finished
 function pphpp_loop($handler)
 {
