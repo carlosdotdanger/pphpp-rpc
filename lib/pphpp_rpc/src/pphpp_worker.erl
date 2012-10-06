@@ -60,19 +60,23 @@ handle_info({Port,{data,Response}},
 		false ->
 			{noreply, State#state{status = retired},0}
 	end;
-handle_info({Thing,{exit_status,Es}}, #state{status = resp_wait, reply_to = ReplyTo} = State)->
+handle_info({Port,{exit_status,Es}}, #state{status = resp_wait, reply_to = ReplyTo} = State)->
 	ReplyTo ! {error,{php_exit,Es}},
-	error_logger:info_msg("pphpp_worker exit during call {~p,{exit_status,~p}}.~n",[Thing,Es]),
+	error_logger:info_msg("pphpp_worker exit during call {~p,{exit_status,~p}}.~n",[Port,Es]),
 	{stop,normal,State#state{status = {exit_status,Es}}};
-handle_info({Thing,{exit_status,Es}},State)->
-	error_logger:info_msg("pphpp_worker exit while idle {~p,{exit_status,~p}}.~n",[Thing,Es]),
+handle_info({Port,{exit_status,Es}},State)->
+	error_logger:info_msg("pphpp_worker exit while idle {~p,{exit_status,~p}}.~n",[Port,Es]),
 	{stop,normal,State#state{status = {exit_status,Es}}};
+handle_info({'EXIT',Port,Reason}, #state{ status = resp_wait, reply_to = ReplyTo} = State)->
+	ReplyTo ! {error,{php_exit,unknown_server_error}},
+	error_logger:info_msg("pphpp_worker got EXIT during call- ~n~p~n~p~n~p~n",[State,Port,Reason]),
+	{stop,normal,State};
 handle_info({'EXIT',_,shutdown},State)->
-	error_logger:info_msg("pphpp_worker got shutdown - ~p ~n",[State]),
+	error_logger:info_msg("pphpp_worker got {EXIT,_,shutdown} - ~p ~n",[State]),
 	{stop,normal,State};
 handle_info(timeout,#state{status = resp_wait, reply_to = ReplyTo, call_timeout = TO} = State)->
 	ReplyTo ! {error,{php_timeout,TO}},
-	{stop,normal,State#state{status = php_timeout},0};
+	{stop,normal,State#state{status = php_timeout}};
 handle_info(timeout,State)->
 	error_logger:info_msg("pphpp_worker timeout - ~n~p~n",[State]),
 	{stop,normal,State}.
