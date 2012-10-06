@@ -33,8 +33,7 @@ function pphpp_loop($handler)
 class Reverser{
 	public function do_it($f,$args){
 		list($s,$num) = $args;
-		if($num > 1000)
-			$num = 1000;
+
 		$b = strrev($s);
 		$out = "";
 		for($x=0;$x < $num ;$x++){

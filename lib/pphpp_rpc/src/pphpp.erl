@@ -1,18 +1,22 @@
 -module(pphpp).
 
--export ([call/2,status/1,stop/1]).
+-export ([call/2,call/3,status/1,stop/1]).
 -export([config_to_args/1,config_to_service_specs/1]).
 -export ([handle_request/4,handle_notify/3]).
--export ([do_request/5]).
+-export ([do_request/5,do_notify/4]).
 
 -define (MAX_RETRIES, 2).
 -define (DEFAULT_CALL_TIMEOUT, 2000).
 -define (DEFAULT_MAX_CALLS, 100).
+-define (MAX_EXEC, 30000).
 
 
 %%API
 call(Pid,Data)->
-	pphpp_worker:php_call(Pid,Data).
+	pphpp_worker:php_call(Pid,self(),Data).
+
+call(Pid,ReplyTo,Data) ->
+	pphpp_worker:php_call(Pid,ReplyTo,Data).
 
 status(Pid)->
 	pphpp_worker:status(Pid).
@@ -21,12 +25,12 @@ stop(Pid)->
 	pphpp_worker:stop(Pid).
 
 handle_request(From,Pool,MsgId,Data)->
-	F = fun(Pid) -> pphpp:call(Pid,Data) end,
+	F = fun(Pid) -> pphpp:call(Pid,Data), receive X -> X after ?MAX_EXEC -> {error,{php_worker_fail,timout}} end end,
 	spawn(?MODULE,do_request,[From,Pool, MsgId,F,1]).
 
 handle_notify(From,Pool,Data)->
-	F = fun(Pid) -> pphpp:call(Pid,Data) end,
-	spawn(?MODULE,do_notify(From,Pool,F,1)).
+	F = fun(Pid) -> pphpp:call(Pid,Data), receive X -> X after ?MAX_EXEC -> {error,{php_worker_fail,timout}} end end,
+	spawn(?MODULE,do_notify,[From,Pool,F,1]).
 
 config_to_args(Config)->
 	PhpExec =  proplists:get_value(php_exec,Config),
