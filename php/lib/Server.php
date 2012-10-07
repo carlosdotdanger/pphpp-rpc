@@ -28,15 +28,21 @@ class MessagePackRPC_STDIO_Server
     $hand = $this->hand;
     try {
       while (TRUE) {
+            try {
             $len_s =fread(STDIN,4);
+            $len  = array_pop(unpack('N', $len_s));
             if(feof(STDIN))
               break;  
-            $data = fread(STDIN,array_pop(unpack('N', $len_s)));
+            $data = "";
+            while (strlen($data) < $len) {
+             $data .= fread(STDIN,$len);
+            }
+            
             if(feof(STDIN))
               break;
             list($code, $func, $args) = $this->back->serverRecvObject($data);
       	    $error = null;
-      	    try {
+      	    
       	      $ret = call_user_func_array(array($hand, $func), $args);
       	    } catch (Exception $e) {
       	      $ret = null;

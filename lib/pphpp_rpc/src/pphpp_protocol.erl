@@ -43,32 +43,51 @@ init([ListenerPid, Socket, Transport, Opts]) ->
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
-handle_cast({reply,Data}, #state{tpt = Trans, sck = Sock}  = State) ->
-	Trans:send(Sock,Data),
-	Trans:setopts(Sock, [{active, once}]),
-    {noreply, State};
+handle_cast({reply,Msg}, #state{tpt = Trans, sck = Sock}  = State) ->
+	case Trans:send(Sock,Msg) of
+		ok ->
+			Trans:setopts(Sock, [{active, once}]),
+    		{noreply, State};
+    	{error,Reason} ->
+    		error_logger:info_msg("Error Responding to client - ~p~n",[Reason]),
+    		{stop,normal,State}
+    end;
 handle_cast({err_reply,MsgId,Data}, #state{tpt = Trans, sck = Sock}  = State) ->
 	Msg = err_msg(MsgId,Data),
-	Trans:send(Sock,Msg),
-	Trans:setopts(Sock, [{active, once}]),
-    {noreply, State}.
+	case Trans:send(Sock,Msg) of
+		ok ->
+			Trans:setopts(Sock, [{active, once}]),
+    		{noreply, State};
+    	{error,Reason} ->
+    		error_logger:info_msg("Error Responding to client - ~p~n",[Reason]),
+    		{stop,normal,State}
+    end.
 handle_info({tcp,Socket, <<9:4,4:4,0:8,
 						RawId:5/binary,
 						_Rest/binary>> = Data}, 
 						#state{tpt = Trans, pool = Pool}  = State) ->
 	MsgId = case mpack:unpack(RawId) of 
 		{ok,Val} -> Val;
-		{ok,Val,_} -> Val;
-		Err -> Err
+		{ok,Val,_} -> Val
 	end,
-	pphpp:handle_request(self(),Pool,MsgId,Data),
-	Trans:setopts(Socket, [{active, once}]),
-    {noreply, State};
-handle_info({tcp,Socket, <<?FIX_ARR,3:4,2:8,_Rest/binary>> = Data},
+	case rcv_all(Trans,Socket,Data) of
+		{ok,AllData} -> pphpp:handle_request(self(),Pool,MsgId,AllData),
+			Trans:setopts(Socket, [{active, once}]),
+    		{noreply, State};
+    	{error,Err} ->
+			error_logger:info_msg("Error getting more data. ~p~n",[Err]),
+			{stop,normal,State}
+    end;
+handle_info({tcp,Socket, <<9:4,3:4,2:8,_Rest/binary>> = Data},
 									 #state{tpt = Trans, pool = Pool} = State) ->
-	pphpp:handle_notify(self(),Pool,Data),
-	Trans:setopts(Socket, [{active, once}]),
-    {noreply, State};
+	case rcv_all(Trans,Socket,Data) of
+		{ok,AllData} -> pphpp:handle_notify(self(),Pool,AllData),
+			Trans:setopts(Socket, [{active, once}]),
+    		{noreply, State};
+    	{error,Err} ->
+			error_logger:info_msg("Error getting more data. ~p~n",[Err]),
+			{stop,normal,State}
+    end;
 handle_info({tcp,_Socket, <<Sample:8/binary,_Data/binary>>},State) ->
 	error_logger:info_msg("got some weird shit! ~p~n",[Sample]),
 			{stop,normal,State};
@@ -99,3 +118,15 @@ code_change(_OldVsn, State, _Extra) ->
 err_msg(MsgId,Data)->
 	mpack:pack([?RESP,MsgId,Data,nil]).
 
+rcv_all(Trans,Socket,FirstChunk)->
+	case mpack:chk_msg(FirstChunk) of
+		ok -> {ok,FirstChunk};
+    	{error,{truncated,_}} -> 
+    		case Trans:recv(Socket,0,100) of
+    			{ok,MDat} -> rcv_all(Trans,Socket,<<FirstChunk/binary,MDat/binary>>);
+    			{error,Err} ->
+    				{error,Err}
+    		end;
+    	Err -> Err
+    end.	
+	
