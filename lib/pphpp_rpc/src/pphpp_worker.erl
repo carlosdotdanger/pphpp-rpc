@@ -60,25 +60,25 @@ handle_info({Port,{data,Response}},
 		false ->
 			{noreply, State#state{status = retired},0}
 	end;
-handle_info({Port,{exit_status,Es}}, #state{status = resp_wait, reply_to = ReplyTo} = State)->
+handle_info({_Port,{exit_status,Es}}, #state{status = resp_wait, reply_to = ReplyTo} = State)->
 	ReplyTo ! {error,{php_exit,Es}},
-	error_logger:info_msg("pphpp_worker exit during call {~p,{exit_status,~p}}.~n",[Port,Es]),
+	%error_logger:info_msg("pphpp_worker exit during call {~p,{exit_status,~p}}.~n",[Port,Es]),
 	{stop,normal,State#state{status = {exit_status,Es}}};
-handle_info({Port,{exit_status,Es}},State)->
-	error_logger:info_msg("pphpp_worker exit while idle {~p,{exit_status,~p}}.~n",[Port,Es]),
+handle_info({_Port,{exit_status,Es}},State)->
+	%error_logger:info_msg("pphpp_worker exit while idle {~p,{exit_status,~p}}.~n",[Port,Es]),
 	{stop,normal,State#state{status = {exit_status,Es}}};
-handle_info({'EXIT',Port,Reason}, #state{ status = resp_wait, reply_to = ReplyTo} = State)->
+handle_info({'EXIT',_Port,Reason}, #state{ status = resp_wait, reply_to = ReplyTo} = State)->
 	ReplyTo ! {error,{php_exit,Reason}},
-	error_logger:info_msg("pphpp_worker got {'EXIT',~p,~p} during php call ~n~p~n",[Port,Reason,State]),
+	%error_logger:info_msg("pphpp_worker got {'EXIT',~p,~p} during php call ~n~p~n",[Port,Reason,State]),
 	{stop,normal,State};
-handle_info({'EXIT',Pid,Reason},State)->
-	error_logger:info_msg("pphpp_worker got {'EXIT',~p,~p} while idle ~n~p~n",[Pid,Reason,State]),
+handle_info({'EXIT',_Pid,_Reason},State)->
+	%error_logger:info_msg("pphpp_worker got {'EXIT',~p,~p} while idle ~n~p~n",[Pid,Reason,State]),
 	{stop,normal,State};
 handle_info(timeout,#state{status = resp_wait, reply_to = ReplyTo, call_timeout = TO} = State)->
 	ReplyTo ! {error,{php_timeout,TO}},
 	{stop,normal,State#state{status = php_timeout}};
 handle_info(timeout,State)->
-	error_logger:info_msg("pphpp_worker timeout - ~n~p~n",[State]),
+	%error_logger:info_msg("pphpp_worker timeout - ~n~p~n",[State]),
 	{stop,normal,State}.
 
 handle_cast({php_call,ReplyTo,Data}, 

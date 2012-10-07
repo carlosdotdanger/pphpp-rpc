@@ -25,7 +25,7 @@
 %% ------------------------------------------------------------------
 
 start_link(ListenerPid, Socket, Transport, Opts) ->
-%	error_logger:info_msg("called mpack_protocol:start_link!~n",[]),
+%	%error_logger:info_msg("called mpack_protocol:start_link!~n",[]),
     gen_server:start_link(?MODULE, [ListenerPid, Socket, Transport, Opts], []).
 
 reply(Pid,Data)->
@@ -48,8 +48,8 @@ handle_cast({reply,Msg}, #state{tpt = Trans, sck = Sock}  = State) ->
 		ok ->
 			Trans:setopts(Sock, [{active, once}]),
     		{noreply, State};
-    	{error,Reason} ->
-    		error_logger:info_msg("Error Responding to client - ~p~n",[Reason]),
+    	{error,_Reason} ->
+    		%error_logger:info_msg("Error Responding to client - ~p~n",[Reason]),
     		{stop,normal,State}
     end;
 handle_cast({err_reply,MsgId,Data}, #state{tpt = Trans, sck = Sock}  = State) ->
@@ -58,8 +58,8 @@ handle_cast({err_reply,MsgId,Data}, #state{tpt = Trans, sck = Sock}  = State) ->
 		ok ->
 			Trans:setopts(Sock, [{active, once}]),
     		{noreply, State};
-    	{error,Reason} ->
-    		error_logger:info_msg("Error Responding to client - ~p~n",[Reason]),
+    	{error,_Reason} ->
+    		%error_logger:info_msg("Error Responding to client - ~p~n",[Reason]),
     		{stop,normal,State}
     end.
 handle_info({tcp,Socket, <<9:4,4:4,0:8,
@@ -74,8 +74,8 @@ handle_info({tcp,Socket, <<9:4,4:4,0:8,
 		{ok,AllData} -> pphpp:handle_request(self(),Pool,MsgId,AllData),
 			Trans:setopts(Socket, [{active, once}]),
     		{noreply, State};
-    	{error,Err} ->
-			error_logger:info_msg("Error getting more data. ~p~n",[Err]),
+    	{error,_Err} ->
+			%error_logger:info_msg("Error getting more data. ~p~n",[Err]),
 			{stop,normal,State}
     end;
 handle_info({tcp,Socket, <<9:4,3:4,2:8,_Rest/binary>> = Data},
@@ -84,8 +84,8 @@ handle_info({tcp,Socket, <<9:4,3:4,2:8,_Rest/binary>> = Data},
 		{ok,AllData} -> pphpp:handle_notify(self(),Pool,AllData),
 			Trans:setopts(Socket, [{active, once}]),
     		{noreply, State};
-    	{error,Err} ->
-			error_logger:info_msg("Error getting more data. ~p~n",[Err]),
+    	{error,_Err} ->
+			%error_logger:info_msg("Error getting more data. ~p~n",[Err]),
 			{stop,normal,State}
     end;
 handle_info({tcp,_Socket, <<Sample:8/binary,_Data/binary>>},State) ->

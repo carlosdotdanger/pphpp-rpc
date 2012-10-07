@@ -12,3 +12,5 @@ result = client.call('echo_any',0)
 print result
 result = client.call('echo_any',None)
 print result
+result = client.call('echo_any',{'derp':[{'herp':0,34:29},"fllllojajkn"]})
+print result

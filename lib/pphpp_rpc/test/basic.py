@@ -60,9 +60,12 @@ try:
 except msgpackrpc.error.RPCError as e:
 	print "got exception:",e 
 
+print "SERVICES\n----------"
 services = client.call('services')
 for service in services:
 	print service
+	for item in service:
+		print "\t",item
 
 #WOOOOOOO!
 #generate errors in the the php script, get valid mspack err message
@@ -71,27 +74,45 @@ for service in services:
 
 print "GENERATING ERRORS"
 
-print "hanging process"
+print "hang process - 2 millis"
 try:
-	client.call('hang',2)
+	result = client.call('hang',2000)
+	print result
+except msgpackrpc.error.RPCError as e:
+	print "got exception:",e
+
+print "hang process - 900 millis"
+try:
+	result = client.call('hang',900000)
+	print result
+except msgpackrpc.error.RPCError as e:
+	print "got exception:",e
+
+print "hang process - 2 seconds"
+try:
+	result = client.call('hang',2000000)
+	print result
 except msgpackrpc.error.RPCError as e:
 	print "got exception:",e
 
 print "abnormal exit (29)"
 try:
-	client.call('exit_with',29)
+	result = client.call('exit_with',29)
+	print result
 except msgpackrpc.error.RPCError as e:
 	print "got exception:",e
 
 print "unhandled php exception"
 try:
-	client.call('make_exception','pooooooooooooop!')
+	result = client.call('make_exception','pooooooooooooop!')
+	print result
 except msgpackrpc.error.RPCError as e:
 	print "got exception:\n----------------\n",e,"\n----------------"
 
 print "another abnormal exit (129)"
 try:
-	client.call('exit_with',129)
+	result = client.call('exit_with',129)
+	print result
 except msgpackrpc.error.RPCError as e:
 	print "got exception:",e
 
