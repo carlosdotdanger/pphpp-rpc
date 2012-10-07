@@ -17,9 +17,11 @@ class ExampleApp
     'make_exception' => 
       array('args'=> 'message: mixed','return' => 'error message', 'desc'=>'throws an exception'),
     'hang' => 
-      array('args'=> 'seconds: int','return' => 'array', 'desc'=>'calls sleep($seconds) and then returns report.'),
+      array('args'=> 'useconds: int','return' => 'array', 'desc'=>'calls usleep($useconds) and then returns report.'),
     'services' => 
-      array('args'=> 'func: string','return' => 'array', 'desc'=>'this function. returns description of $func or all functions if null')
+      array('args'=> 'func: string','return' => 'array', 'desc'=>'this function. returns description of $func or all functions if null'),
+    'echo_any' =>
+      array('args'=> 'func: mixed','return' => 'mixed', 'desc'=>'returns whatever you send')      
    );
   //your funcs here
   public function hello($a){
@@ -64,9 +66,13 @@ public function services($whatev = NULL){
     exit(intval($signal));
   }
 
-  public function hang($seconds){
-    sleep($seconds);
-    return array('STATUS'=>'ok', 'SLEPT_FOR' => $seconds);
+  public function hang($useconds){
+    usleep($useconds);
+    return array('STATUS'=>'ok', 'SLEPT_FOR' => $useconds);
+  }
+
+  public function echo_any($thing = NULL){
+    return $thing;
   }
 
 }
