@@ -25,11 +25,10 @@ start(_StartType, _StartArgs) ->
                 _ -> []
              end,
  %error_logger:info_msg("SERVERS ~p~n",[Servers]),
-    [{ok, _} = ranch:start_listener(Name, 1,
+    [{ok, _} = ranch:start_listener(Name, 5,
         ranch_tcp, TcpOpts, pphpp_protocol, PphppArgs) || 
                     {Name,TcpOpts,PphppArgs} <- Servers  ],
     {ok,Pid}.
    % php_pool_sup:start_link(PoolSpecs).
 stop(_State) ->
-    application:stop(ranch),
     ok.
